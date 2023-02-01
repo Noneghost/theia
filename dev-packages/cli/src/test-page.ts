@@ -125,6 +125,14 @@ export default async function newTestPage(options: TestPageOptions): Promise<pup
             await page.addScriptTag({ path: file });
         }
 
+        // Click inside the Theia app's shell. This helps with test failures when running
+        // the suite with a UI (i.e. non-headless mode). For some reason unless we click
+        // on the app, something is not set correctly, and most tests that rely on the UI fail.
+        await page.waitForSelector('#theia-app-shell.p-Widget.theia-ApplicationShell')
+            .then(e => e.click());
+        // Clear application's local storage to avoid reusing previous state.
+        await page.evaluate(() => localStorage.clear());
+
         console.log('running test files...');
         const failures = await page.evaluate(() =>
             new Promise<number>(resolve => mocha.run(resolve))
