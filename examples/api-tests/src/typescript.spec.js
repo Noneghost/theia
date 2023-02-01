@@ -360,7 +360,6 @@ describe('TypeScript', function () {
 
     it('editor.action.triggerSuggest', async function () {
         const editor = await openEditor(demoFileUri);
-        // const demoVariable = demoInstance.[stringField];
         editor.getControl().setPosition({ lineNumber: 26, column: 46 });
         editor.getControl().setSelection(new Selection(26, 46, 26, 35));
         assert.equal(editor.getControl().getModel().getWordAtPosition(editor.getControl().getPosition()).word, 'stringField');
@@ -374,8 +373,17 @@ describe('TypeScript', function () {
         assert.isTrue(contextKeyService.match('editorTextFocus'));
         assert.isTrue(contextKeyService.match('suggestWidgetVisible'));
 
+        // May need a couple extra "Enter" being sent for the suggest to be accepted
         keybindings.dispatchKeyDown('Enter');
-        await waitForAnimation(() => !contextKeyService.match('suggestWidgetVisible'));
+        await waitForAnimation(() => {
+            const suggestWidgetDismissed = !contextKeyService.match('suggestWidgetVisible');
+            if (!suggestWidgetDismissed) {
+                console.log('Re-try accepting suggest using "Enter" key');
+                keybindings.dispatchKeyDown('Enter');
+                return false;
+            }
+            return true;
+        }, 5000, 'Suggest widget has not been dismissed despite attempts to accept suggestion');
 
         assert.isTrue(contextKeyService.match('editorTextFocus'));
         assert.isFalse(contextKeyService.match('suggestWidgetVisible'));
@@ -424,7 +432,17 @@ describe('TypeScript', function () {
         assert.isTrue(contextKeyService.match('suggestWidgetVisible'));
 
         keybindings.dispatchKeyDown('Escape');
-        await waitForAnimation(() => !contextKeyService.match('suggestWidgetVisible') && getFocusedLabel() === undefined, 5000);
+        
+        // once in a while, a second "Escape" is needed to dismiss widget
+        await waitForAnimation(() => { 
+            const suggestWidgetDismissed = !contextKeyService.match('suggestWidgetVisible') && getFocusedLabel() === undefined;
+            if (!suggestWidgetDismissed) {
+                console.log('Re-try to dismiss suggest using "Escape" key');
+                keybindings.dispatchKeyDown('Escape');
+                return false;
+            }
+            return true;
+        }, 5000, 'Suggest widget not dismissed');
 
         assert.isUndefined(getFocusedLabel());
         assert.isFalse(contextKeyService.match('suggestWidgetVisible'));
@@ -762,7 +780,6 @@ SPAN {
             return lightbulbVisibility !== undefined && lightbulbVisibility !== 'hidden';
         }
         assert.isFalse(isActionAvailable());
-        // import { DefinedInterface } from "./demo-definitions-file";
         assert.strictEqual(editor.getControl().getModel().getLineContent(30), 'import { DefinedInterface } from "./demo-definitions-file";');
         editor.getControl().revealLine(30);
         editor.getControl().setSelection(new Selection(30, 1, 30, 60));
@@ -780,16 +797,24 @@ SPAN {
         console.log(`content: ${editor.getControl().getModel().getLineContent(30)}`);
         await waitForAnimation(() => editor.getControl().getModel().getLineContent(30) === 'import * as demoDefinitionsFile from "./demo-definitions-file";', 5000, 'The namespace import did not take effect.');
 
+        // momentarily toggle selection, waiting for code action to become unavailable.
+        // Without doing this, the call to the quickfix command would sometimes fail because of an
+        // unexpected "no code action available" pop-up, which would trip the rest of the testcase
+        editor.getControl().setSelection(new Selection(30, 1, 30, 1));
+        await waitForAnimation(() => !isActionAvailable(), 5000, 'Code action still available with no proper selection.');
+        // re-establish selection
         editor.getControl().setSelection(new Selection(30, 1, 30, 64));
         await waitForAnimation(() => isActionAvailable(), 5000, 'No code action available. (2)');
 
-        // Change it back: https://github.com/eclipse-theia/theia/issues/11059
+        // Change import back: https://github.com/eclipse-theia/theia/issues/11059
         await commands.executeCommand('editor.action.quickFix');
         await waitForAnimation(() => Boolean(document.querySelector('.context-view-pointerBlock')), 5000, 'No context menu appeared. (2)');
         await animationFrame();
 
         keybindings.dispatchKeyDown('Enter');
 
+        assert.isNotNull(editor.getControl());
+        assert.isNotNull(editor.getControl().getModel());
         await waitForAnimation(() => editor.getControl().getModel().getLineContent(30) === 'import { DefinedInterface } from "./demo-definitions-file";', 5000, 'The named import did not take effect.');
     });
 });
