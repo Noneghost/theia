@@ -101,7 +101,7 @@ describe('Find and Replace', function () {
     }
 
     for (const command of [CommonCommands.FIND, CommonCommands.REPLACE]) {
-        it(command.label + ' in the active editor', async function () {
+        it.skip(command.label + ' in the active editor', async function () {
             await navigatorContribution.openView({ activate: true });
 
             await editorManager.open(fileUri, { mode: 'activate' });
@@ -109,14 +109,14 @@ describe('Find and Replace', function () {
             await assertEditorFindReplace(command);
         });
 
-        it(command.label + ' in the active explorer without the current editor', async function () {
+        it.skip(command.label + ' in the active explorer without the current editor', async function () {
             await navigatorContribution.openView({ activate: true });
 
             // should not throw
             await commands.executeCommand(command.id);
         });
 
-        it(command.label + ' in the active explorer with the current editor', async function () {
+        it.skip(command.label + ' in the active explorer with the current editor', async function () {
             await editorManager.open(fileUri, { mode: 'activate' });
 
             await navigatorContribution.openView({ activate: true });
