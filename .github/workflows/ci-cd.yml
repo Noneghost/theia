@@ -106,7 +106,7 @@ jobs:
       - name: Test (browser)
         if: matrix.tests != 'skip' && runner.os == 'Linux'
         run: |
-          xvfb-run -a yarn browser test
+          yarn browser test
 
       - name: Test (electron)
         if: matrix.tests != 'skip' && runner.os == 'Linux'
