@@ -404,6 +404,7 @@ describe('Launch Preferences', function () {
      * @returns {AbstractResourcePreferenceProvider | undefined} The preference provider matching the provided URI.
      */
     function findProvider(uri) {
+        console.log('findProvider(). uri of file to modify: ' + uri.toString());
         /**
          * @param {PreferenceProvider} provider
          * @returns {boolean} whether the provider matches the desired URI.
@@ -414,11 +415,13 @@ describe('Launch Preferences', function () {
         };
         for (const provider of userPreferences['providers'].values()) {
             if (isMatch(provider) && provider instanceof AbstractResourcePreferenceProvider) {
+                console.log('provider: userPreferences');
                 return provider;
             }
         }
         for (const provider of folderPreferences['providers'].values()) {
             if (isMatch(provider) && provider instanceof AbstractResourcePreferenceProvider) {
+                console.log('provider: folderPreferences');
                 return provider;
             }
         }
@@ -426,6 +429,7 @@ describe('Launch Preferences', function () {
         const workspaceDelegate = workspacePreferences['delegate'];
         if (workspaceDelegate !== folderPreferences) {
             if (isMatch(workspaceDelegate) && workspaceDelegate instanceof AbstractResourcePreferenceProvider) {
+                console.log('provider: workspacePreferences');
                 return workspaceDelegate;
             }
         }
@@ -437,6 +441,7 @@ describe('Launch Preferences', function () {
             for (const name of ['settings', 'launch']) {
                 promises.push((async () => {
                     const uri = rootUri.resolve(configPath + '/' + name + '.json');
+                    console.log('*** deleteWorkspacePreferences : findProvider() call');
                     const provider = findProvider(uri);
                     try {
                         if (provider) {
@@ -464,12 +469,32 @@ describe('Launch Preferences', function () {
     const originalShouldOverwrite = fileResourceResolver['shouldOverwrite'];
 
     before(async () => {
+        console.log('*** launch-preferences:before() - enter');
+        // TODO: There's an occasional exception that seems to happen here:
+        /**
+         * 1) Launch Preferences
+       "before all" hook in "Launch Preferences":
+     Uncaught Error: Uncaught Error: There is no document for file:///home/<user>/theia/examples/browser/package.json
+
+Error: There is no document for file:///home/<user>/theia/examples/browser/package.json
+    at LinkProviderAdapter.provideLinks (/home/<user>/theia/packages/plugin-ext/lib/plugin/languages/link-provider.js:31:35)
+    at /home/<user>/theia/packages/plugin-ext/lib/plugin/languages.js:332:97
+    at LanguagesExtImpl.withAdapter (/home/<user>/theia/packages/plugin-ext/lib/plugin/languages.js:123:20)
+    at LanguagesExtImpl.$provideDocumentLinks (/home/<user>/theia/packages/plugin-ext/lib/plugin/languages.js:332:21)
+    at /home/<user>/theia/packages/plugin-ext/lib/common/proxy-handler.js:91:71
+    at processTicksAndRejections (node:internal/process/task_queues:96:5)
+    at async RpcProtocol.handleRequest (/home/<user>/theia/packages/core/lib/common/message-rpc/rpc-protocol.js:167:28) (http://127.0.0.1:3000/vendors-node_modules_theia_monaco-editor-core_esm_vs_base_common_severity_js-node_modules_the-68fc42.js:1785)
+
+         * 
+         */
         // fail tests if out of async happens
         fileResourceResolver['shouldOverwrite'] = async () => (assert.fail('should be in sync'), false);
         await deleteWorkspacePreferences();
+        console.log('*** launch-preferences:before() - end');
     });
 
     after(() => {
+        console.log('*** launch-preferences:after()');
         fileResourceResolver['shouldOverwrite'] = originalShouldOverwrite;
     });
 
@@ -495,6 +520,7 @@ describe('Launch Preferences', function () {
             /** @typedef {import('@theia/monaco-editor-core/esm/vs/base/common/lifecycle').IReference<import('@theia/monaco/lib/browser/monaco-editor-model').MonacoEditorModel>} ConfigModelReference */
             /** @type {ConfigModelReference[]} */
             beforeEach(async () => {
+                console.log('beforeEach()');
                 /** @type {Promise<void>[]} */
                 const promises = [];
                 /**
@@ -506,6 +532,7 @@ describe('Launch Preferences', function () {
                         promises.push((async () => {
                             try {
                                 const uri = rootUri.resolve(configPath + '/' + name + '.json');
+                                console.log('*** ensureConfigModel : findProvider() call');
                                 const provider = findProvider(uri);
                                 if (provider) {
                                     await provider['doSetPreference']('', [], value);
@@ -546,8 +573,11 @@ describe('Launch Preferences', function () {
             });
 
             testIt('get from rootUri', () => {
+                console.log(`launch-preferences:get from rootUri: enter. rootUri:\n${rootUri.toString()}`);
                 /** @type {any} */
                 const config = preferences.get('launch', undefined, rootUri.toString());
+                console.log(`config:\n` + JSON.stringify(config));
+                console.log('vs expected:\n' + JSON.stringify(expectation));
                 assert.deepStrictEqual(JSON.parse(JSON.stringify(config)), expectation);
             });
 
@@ -595,11 +625,23 @@ describe('Launch Preferences', function () {
             });
 
             testIt('update launch', async () => {
+                console.log('update launch');
+
+                const inspect1 = preferences.inspect('launch');
+                console.log('*** pre-inspect before updating launch:\n' + JSON.stringify(inspect1));
+
+                console.log('validLaunch:\n' + JSON.stringify(validLaunch));
                 await preferences.set('launch', validLaunch);
 
                 const inspect = preferences.inspect('launch');
+                console.log('inspect:\n' + JSON.stringify(inspect));
+
                 const actual = inspect && inspect.workspaceValue;
+                console.log('actual:\n' + JSON.stringify(actual));
+
                 const expected = settingsLaunch && !Array.isArray(settingsLaunch) ? { ...settingsLaunch, ...validLaunch } : validLaunch;
+                console.log('expected:\n' + JSON.stringify(expected));
+
                 assert.deepStrictEqual(actual, expected);
             });
 
@@ -655,7 +697,8 @@ describe('Launch Preferences', function () {
                     }
                 }
                 expected = expected || settingsLaunch;
-                assert.deepStrictEqual(actual && actual.workspaceValue, expected);
+                console.log('**_**_**_** \nactual: ' + JSON.stringify(actual && actual.workspaceValue) + '\nexpected: ' + JSON.stringify(expected));
+                assert.deepStrictEqual(actual && actual.workspaceValue, expected, '\nactual: ' + JSON.stringify(actual && actual.workspaceValue) + '\nexpected: ' + JSON.stringify(expected));
             });
 
             if ((launch && !Array.isArray(launch)) || (settingsLaunch && !Array.isArray(settingsLaunch))) {
@@ -664,6 +707,11 @@ describe('Launch Preferences', function () {
 
                     const actual = preferences.inspect('launch');
                     const actualWorkspaceValue = actual && actual.workspaceValue;
+                    let  actual_ws = "";
+                    if (actual && actual.workspaceValue) {
+                        actual_ws= JSON.stringify(actual.workspaceValue);
+                    }
+                    console.log('++++++++++++ actualWorkspaceValue = actual && actual.workspaceValue : \n+++ actual: ' + JSON.stringify(actual) + '\n+++ actual.workspaceValue: ' + actual_ws);
 
                     let expected = undefined;
                     if (launch) {
@@ -685,7 +733,7 @@ describe('Launch Preferences', function () {
                             expected = _settingsLaunch;
                         }
                     }
-
+                    console.log('**_**_**_** \nactual: ' + JSON.stringify(actualWorkspaceValue) + '\nexpected: ' + JSON.stringify(expected));
                     assert.deepStrictEqual(actualWorkspaceValue, expected);
                 });
             }

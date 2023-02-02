@@ -137,6 +137,7 @@ export default async function newTestPage(options: TestPageOptions): Promise<pup
         const failures = await page.evaluate(() =>
             new Promise<number>(resolve => mocha.run(resolve))
         );
+        console.log('test-page: failures: ' + failures);
         if (onDidRun) {
             await onDidRun(failures);
         }
